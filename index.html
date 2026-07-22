@@ -1,0 +1,145 @@
+<!doctype html>
+<html lang="pl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+  <meta name="theme-color" content="#07102f">
+  <meta name="description" content="Ludo by PlayFlower Studio — gra planszowa w przeglądarce.">
+  <title>Ludo</title>
+  <link id="-gd-engine-icon" rel="icon" type="image/png" href="index.icon.png" />
+<link rel="apple-touch-icon" href="index.apple-touch-icon.png"/>
+<link rel="manifest" href="index.manifest.json">
+
+  <style>
+    :root {
+      color-scheme: dark;
+      --navy: #07102f;
+      --navy-soft: #111d4d;
+      --cyan: #2ed4d1;
+      --text: #f5f8ff;
+      --muted: #96b4d8;
+    }
+    * { box-sizing: border-box; }
+    html, body {
+      width: 100%;
+      height: 100%;
+      margin: 0;
+      overflow: hidden;
+      background: var(--navy);
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      overscroll-behavior: none;
+    }
+    #canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+      outline: none;
+      touch-action: none;
+    }
+    #loading {
+      position: fixed;
+      inset: 0;
+      z-index: 5;
+      display: grid;
+      place-items: center;
+      padding: max(24px, env(safe-area-inset-top)) max(24px, env(safe-area-inset-right)) max(24px, env(safe-area-inset-bottom)) max(24px, env(safe-area-inset-left));
+      background: radial-gradient(circle at 50% 30%, #17275f 0%, var(--navy) 66%);
+      transition: opacity 180ms ease;
+    }
+    #loading.hidden { opacity: 0; pointer-events: none; }
+    .loading-card { width: min(440px, 90vw); text-align: center; }
+    .brand-dots { display: flex; justify-content: center; gap: 10px; margin-bottom: 16px; }
+    .brand-dots span { width: 15px; height: 15px; border-radius: 50%; }
+    .brand-dots span:nth-child(1) { background: #2ed4d1; }
+    .brand-dots span:nth-child(2) { background: #7385fa; }
+    .brand-dots span:nth-child(3) { background: #bd63f5; }
+    h1 { margin: 0; color: var(--text); font-size: clamp(42px, 9vw, 64px); line-height: 1; }
+    .studio { margin: 10px 0 30px; color: var(--muted); font-size: 18px; }
+    .progress-track {
+      width: 100%; height: 12px; overflow: hidden; border-radius: 999px;
+      background: rgba(255,255,255,.12); border: 1px solid rgba(255,255,255,.13);
+    }
+    #progress-bar {
+      width: 4%; height: 100%; border-radius: inherit;
+      background: linear-gradient(90deg, var(--cyan), #6b9fff);
+      transition: width 100ms linear;
+    }
+    #status { min-height: 48px; margin: 16px 0 0; color: var(--muted); line-height: 1.45; }
+    #retry {
+      display: none; margin: 20px auto 0; min-height: 48px; padding: 0 24px;
+      border: 1px solid rgba(255,255,255,.25); border-radius: 12px;
+      color: var(--text); background: var(--navy-soft); cursor: pointer;
+    }
+    #retry.visible { display: inline-block; }
+  </style>
+</head>
+<body>
+  <canvas id="canvas" tabindex="0" aria-label="Gra Ludo"></canvas>
+  <div id="loading" role="status" aria-live="polite">
+    <div class="loading-card">
+      <div class="brand-dots" aria-hidden="true"><span></span><span></span><span></span></div>
+      <h1>Ludo</h1>
+      <p class="studio">by PlayFlower Studio</p>
+      <div class="progress-track" aria-hidden="true"><div id="progress-bar"></div></div>
+      <p id="status">Ładowanie gry…</p>
+      <button id="retry" type="button">Spróbuj ponownie</button>
+    </div>
+  </div>
+  <script src="index.js"></script>
+  <script>
+    (() => {
+      'use strict';
+      const loading = document.getElementById('loading');
+      const progress = document.getElementById('progress-bar');
+      const status = document.getElementById('status');
+      const retry = document.getElementById('retry');
+      const canvas = document.getElementById('canvas');
+
+      function showError(message) {
+        status.textContent = message;
+        progress.style.width = '100%';
+        retry.classList.add('visible');
+      }
+
+      function updateProgress(current, total) {
+        if (total > 0) {
+          const percent = Math.max(4, Math.min(100, Math.round(current * 100 / total)));
+          progress.style.width = percent + '%';
+          status.textContent = `Ładowanie gry… ${percent}%`;
+        } else {
+          progress.style.width = '36%';
+          status.textContent = 'Przygotowywanie gry…';
+        }
+      }
+
+      async function start() {
+        retry.classList.remove('visible');
+        if (!Engine.isWebGLAvailable(2)) {
+          showError('Ta przeglądarka nie udostępnia WebGL 2. Włącz obsługę grafiki sprzętowej lub użyj aktualnej przeglądarki.');
+          return;
+        }
+        try {
+          const engine = new Engine({"args":[],"canvasResizePolicy":2,"emscriptenPoolSize":8,"ensureCrossOriginIsolationHeaders":false,"executable":"index","experimentalVK":true,"fileSizes":{"index.pck":360240,"index.wasm":39513091},"focusCanvas":true,"gdextensionLibs":[],"godotPoolSize":4,"serviceWorker":"index.service.worker.js"});
+          await engine.startGame({
+            canvas,
+            canvasResizePolicy: 2,
+            onProgress: updateProgress,
+            onPrintError: (...args) => console.error(...args)
+          });
+          progress.style.width = '100%';
+          status.textContent = 'Gotowe';
+          loading.classList.add('hidden');
+          canvas.focus({ preventScroll: true });
+        } catch (error) {
+          console.error(error);
+          showError('Nie udało się uruchomić gry WebAssembly. Odśwież stronę albo sprawdź ustawienia WebGL przeglądarki.');
+        }
+      }
+
+      retry.addEventListener('click', () => window.location.reload());
+      start();
+    })();
+  </script>
+</body>
+</html>
+
