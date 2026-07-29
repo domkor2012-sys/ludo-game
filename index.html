@@ -94,6 +94,7 @@
       const status = document.getElementById('status');
       const retry = document.getElementById('retry');
       const canvas = document.getElementById('canvas');
+      let engineInstance = null;
 
       function showError(message) {
         status.textContent = message;
@@ -112,6 +113,17 @@
         }
       }
 
+      function shutdownEngine() {
+        if (!engineInstance) {
+          return;
+        }
+        try {
+          engineInstance.requestQuit();
+        } catch (_error) {
+          // Browser shutdown can invalidate the Web runtime before Godot acknowledges quit.
+        }
+      }
+
       async function start() {
         retry.classList.remove('visible');
         if (!Engine.isWebGLAvailable(2)) {
@@ -119,7 +131,11 @@
           return;
         }
         try {
-          const engine = new Engine({"args":[],"canvasResizePolicy":2,"emscriptenPoolSize":8,"ensureCrossOriginIsolationHeaders":false,"executable":"index","experimentalVK":true,"fileSizes":{"index.pck":360240,"index.wasm":39513091},"focusCanvas":true,"gdextensionLibs":[],"godotPoolSize":4,"serviceWorker":"index.service.worker.js"});
+          const engineConfig = {"args":[],"canvasResizePolicy":2,"emscriptenPoolSize":8,"ensureCrossOriginIsolationHeaders":false,"executable":"index","experimentalVK":true,"fileSizes":{"index.pck":387712,"index.wasm":39513091},"focusCanvas":true,"gdextensionLibs":[],"godotPoolSize":4,"serviceWorker":"index.service.worker.js"};
+          engineConfig.args = [...(engineConfig.args || []), '--audio-driver', 'Dummy'];
+          engineConfig.serviceWorker = '';
+          const engine = new Engine(engineConfig);
+          engineInstance = engine;
           await engine.startGame({
             canvas,
             canvasResizePolicy: 2,
@@ -137,6 +153,8 @@
       }
 
       retry.addEventListener('click', () => window.location.reload());
+      window.addEventListener('pagehide', shutdownEngine);
+      window.addEventListener('beforeunload', shutdownEngine);
       start();
     })();
   </script>
